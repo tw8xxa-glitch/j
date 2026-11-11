@@ -5161,12 +5161,26 @@ do
     _t18UpdateLogStats()
 end
 
+local _tlFilterShell = Instance.new("Frame")
+_tlFilterShell.Name = "TlFilterShell"
+_tlFilterShell.Size = UDim2.new(1, -20, 0, 34)
+_tlFilterShell.Position = UDim2.new(0, 10, 0, 58)
+_tlFilterShell.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+_tlFilterShell.BackgroundTransparency = 0.0
+_tlFilterShell.BorderSizePixel = 0
+_tlFilterShell.ZIndex = 41
+_tlFilterShell.Parent = TargetLogPanel
+makeCorner(_tlFilterShell, 10)
+UiFx.makeGradient(_tlFilterShell, {
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(48, 48, 48)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 20, 20)),
+}, 90)
+
 local _tlFilter = Instance.new("TextBox")
 _tlFilter.Name = "TlFilter"
-_tlFilter.Size = UDim2.new(1, -20, 0, 34)
-_tlFilter.Position = UDim2.new(0, 10, 0, 58)
-_tlFilter.BackgroundColor3 = Theme.Input
-_tlFilter.BackgroundTransparency = 0.0
+_tlFilter.Size = UDim2.new(1, 0, 1, 0)
+_tlFilter.Position = UDim2.new(0, 0, 0, 0)
+_tlFilter.BackgroundTransparency = 1
 _tlFilter.PlaceholderText = "اكتب اسم اللاعب لتسجيله في العداد..."
 _tlFilter.Text = ""
 _tlFilter.TextColor3 = Theme.Text
@@ -5175,15 +5189,10 @@ _tlFilter.Font = Enum.Font.GothamMedium
 _tlFilter.TextSize = 13
 _tlFilter.TextXAlignment = Enum.TextXAlignment.Right
 _tlFilter.ClearTextOnFocus = false
-_tlFilter.ZIndex = 41
-_tlFilter.Parent = TargetLogPanel
-makeCorner(_tlFilter, 10)
-UiFx.makeGradient(_tlFilter, {
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(48, 48, 48)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 20, 20)),
-}, 90)
+_tlFilter.ZIndex = 42
+_tlFilter.Parent = _tlFilterShell
 do
-    local filterStroke = makeStroke(_tlFilter, Color3.fromRGB(145, 145, 145), 1, 0.05)
+    local filterStroke = makeStroke(_tlFilterShell, Color3.fromRGB(145, 145, 145), 1, 0.05)
     local filterPad = Instance.new("UIPadding")
     filterPad.PaddingRight = UDim.new(0, 12)
     filterPad.PaddingLeft = UDim.new(0, 12)
@@ -5199,26 +5208,45 @@ do
     end)
 end
 
+local _tlClearShell = Instance.new("Frame")
+_tlClearShell.Name = "TlClearShell"
+_tlClearShell.Size = UDim2.new(1, -20, 0, 30)
+_tlClearShell.Position = UDim2.new(0, 10, 0, 98)
+_tlClearShell.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+_tlClearShell.BackgroundTransparency = 0.0
+_tlClearShell.BorderSizePixel = 0
+_tlClearShell.ZIndex = 41
+_tlClearShell.Parent = TargetLogPanel
+makeCorner(_tlClearShell, 9)
+UiFx.makeGradient(_tlClearShell, {
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(48, 48, 48)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 20, 20)),
+}, 90)
+
 local _tlClear = Instance.new("TextButton")
 _tlClear.Name = "TlClear"
-_tlClear.Size = UDim2.new(1, -20, 0, 30)
-_tlClear.Position = UDim2.new(0, 10, 0, 98)
-_tlClear.BackgroundColor3 = Theme.ButtonDefaultAlt
-_tlClear.BackgroundTransparency = 0.0
+_tlClear.Size = UDim2.new(1, 0, 1, 0)
+_tlClear.Position = UDim2.new(0, 0, 0, 0)
+_tlClear.BackgroundTransparency = 1
 _tlClear.Text = "مسح السجل"
 _tlClear.TextColor3 = Color3.fromRGB(255, 255, 255)
 _tlClear.Font = Enum.Font.GothamBold
 _tlClear.TextSize = 13
 _tlClear.AutoButtonColor = false
-_tlClear.ZIndex = 41
-_tlClear.Parent = TargetLogPanel
-makeCorner(_tlClear, 9)
-UiFx.makeGradient(_tlClear, {
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(48, 48, 48)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 20, 20)),
-}, 90)
+_tlClear.ZIndex = 42
+_tlClear.Parent = _tlClearShell
 do
-    local clearStroke = makeStroke(_tlClear, Color3.fromRGB(150, 150, 150), 1, 0.06)
+    local clearStroke = makeStroke(_tlClearShell, Color3.fromRGB(150, 150, 150), 1, 0.06)
+    local clearHover = Instance.new("Frame")
+    clearHover.Name = "TlClearHover"
+    clearHover.Size = UDim2.new(1, 0, 1, 0)
+    clearHover.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    clearHover.BackgroundTransparency = 1
+    clearHover.BorderSizePixel = 0
+    clearHover.ZIndex = 41
+    clearHover.Parent = _tlClearShell
+    makeCorner(clearHover, 9)
+
     local clearPad = Instance.new("UIPadding")
     clearPad.PaddingRight = UDim.new(0, 30)
     clearPad.Parent = _tlClear
@@ -5236,11 +5264,11 @@ do
     clearIcon.Parent = _tlClear
 
     _tlClear.MouseEnter:Connect(function()
-        TweenService:Create(_tlClear, TweenInfo.new(0.12), {BackgroundTransparency = 0.0}):Play()
+        TweenService:Create(clearHover, TweenInfo.new(0.12), {BackgroundTransparency = 0.92}):Play()
         clearStroke.Transparency = 0.0
     end)
     _tlClear.MouseLeave:Connect(function()
-        TweenService:Create(_tlClear, TweenInfo.new(0.18), {BackgroundTransparency = 0.0}):Play()
+        TweenService:Create(clearHover, TweenInfo.new(0.18), {BackgroundTransparency = 1}):Play()
         clearStroke.Transparency = 0.06
     end)
 end
