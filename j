@@ -4452,39 +4452,40 @@ end
 local function _t18LogTarget(name)
     if not name or #name < 1 then return nil end
     local now = tick()
+    local targetPlayer = nil
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p.Name == name then targetPlayer = p break end
+    end
     local entry = _T18TargetLog[name]
     if entry then
         entry.count = entry.count + 1
-        if not entry.online then
-            local onNow = false
-            for _, p in ipairs(Players:GetPlayers()) do
-                if p.Name == name then onNow = true break end
-            end
-            if onNow then
-                entry.online = true
-                entry.joinCount = (entry.joinCount or 0) + 1
-                entry.sessionStart = now
-                entry.lastOfflineDuration = entry.offlineStart and (now - entry.offlineStart) or (entry.lastOfflineDuration or 0)
-                entry.offlineStart = nil
-            end
+        if targetPlayer then
+            entry.userId = targetPlayer.UserId
+            entry.displayName = targetPlayer.DisplayName
+        end
+        if not entry.online and targetPlayer then
+            entry.online = true
+            entry.joinCount = (entry.joinCount or 0) + 1
+            entry.sessionStart = now
+            entry.lastOfflineDuration = entry.offlineStart and (now - entry.offlineStart) or (entry.lastOfflineDuration or 0)
+            entry.offlineStart = nil
         end
     else
-        local onNow = false
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p.Name == name then onNow = true break end
-        end
         _T18TargetLog[name] = {
             count = 1,
             startTime = now,
-            sessionStart = onNow and now or nil,
-            offlineStart = onNow and nil or now,
+            sessionStart = targetPlayer and now or nil,
+            offlineStart = targetPlayer and nil or now,
             onlineElapsed = 0,
             lastOfflineDuration = 0,
             leaveCount = 0,
-            joinCount = onNow and 1 or 0,
-            online = onNow,
+            joinCount = targetPlayer and 1 or 0,
+            online = targetPlayer ~= nil,
+            userId = targetPlayer and targetPlayer.UserId or nil,
+            displayName = targetPlayer and targetPlayer.DisplayName or nil,
         }
     end
+    if _t18UpdateLogStats then _t18UpdateLogStats() end
     return _T18TargetLog[name]
 end
 
@@ -4502,8 +4503,8 @@ Players.PlayerRemoving:Connect(function(p)
         local refs = _T18TimerRefs[p.Name]
         if refs then
             if refs.status then
-                refs.status.Text = "خرج من السيرفر"
-                refs.status.TextColor3 = Color3.fromRGB(255,100,100)
+                refs.status.Text = "● خارج"
+                refs.status.TextColor3 = Color3.fromRGB(255,100,110)
             end
             if refs.leaveLabel then
                 refs.leaveLabel.Text = "خرج " .. entry.leaveCount .. " مرات"
@@ -4512,21 +4513,41 @@ Players.PlayerRemoving:Connect(function(p)
                 refs.timer.Text = "منذ " .. _t18FmtTimer(_t18OnlineTime(entry))
             end
             if refs.countLabel then
-                refs.countLabel.Text = "دخول " .. tostring(entry.joinCount or 0) .. "  |  خروج " .. tostring(entry.leaveCount or 0)
+                refs.countLabel.Text = "دخول " .. tostring(entry.joinCount or 0) .. "  •  خروج " .. tostring(entry.leaveCount or 0)
             end
             if refs.offlineTimer then
                 refs.offlineTimer.Text = "خارج: " .. _t18FmtTimer(0)
+            end
+            if refs.dot then
+                refs.dot.BackgroundColor3 = Color3.fromRGB(255, 100, 110)
+            end
+            if refs.stroke then
+                refs.stroke.Color = Color3.fromRGB(100, 35, 45)
+            end
+            if refs.accent then
+                refs.accent.BackgroundColor3 = Color3.fromRGB(255, 100, 110)
+            end
+            if refs.rowBg then
+                refs.rowBg = Color3.fromRGB(70, 25, 25)
+            end
+            if refs.hoverBg then
+                refs.hoverBg = Color3.fromRGB(88, 32, 36)
             end
             if refs.row then
                 refs.row.BackgroundColor3 = Color3.fromRGB(70,25,25)
             end
         end
     end
+    if _t18UpdateLogStats then _t18UpdateLogStats() end
 end)
 
 Players.PlayerAdded:Connect(function(p)
     if p == LocalPlayer then return end
     local entry = _T18TargetLog[p.Name]
+    if entry then
+        entry.userId = p.UserId
+        entry.displayName = p.DisplayName
+    end
     if entry and not entry.online then
         local now = tick()
         entry.online = true
@@ -4537,7 +4558,7 @@ Players.PlayerAdded:Connect(function(p)
         local refs = _T18TimerRefs[p.Name]
         if refs then
             if refs.status then
-                refs.status.Text = "في السيرفر"
+                refs.status.Text = "● متصل"
                 refs.status.TextColor3 = Color3.fromRGB(100,220,100)
             end
             if refs.timer then
@@ -4547,10 +4568,38 @@ Players.PlayerAdded:Connect(function(p)
                 refs.row.BackgroundColor3 = Color3.fromRGB(20,55,35)
             end
             if refs.countLabel then
-                refs.countLabel.Text = "دخول " .. tostring(entry.joinCount or 0) .. "  |  خروج " .. tostring(entry.leaveCount or 0)
+                refs.countLabel.Text = "دخول " .. tostring(entry.joinCount or 0) .. "  •  خروج " .. tostring(entry.leaveCount or 0)
+            end
+            if refs.dot then
+                refs.dot.BackgroundColor3 = Color3.fromRGB(100, 220, 100)
+            end
+            if refs.stroke then
+                refs.stroke.Color = Color3.fromRGB(40, 90, 55)
+            end
+            if refs.accent then
+                refs.accent.BackgroundColor3 = Color3.fromRGB(100, 220, 100)
+            end
+            if refs.rowBg then
+                refs.rowBg = Color3.fromRGB(20, 55, 35)
+            end
+            if refs.hoverBg then
+                refs.hoverBg = Color3.fromRGB(28, 72, 46)
+            end
+            if refs.avatar then
+                refs.avatar.Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(p.UserId) .. "&w=150&h=150"
+            end
+            if refs.fallback then
+                refs.fallback.Visible = false
+            end
+            if refs.nameLabel then
+                refs.nameLabel.Text = p.DisplayName
+            end
+            if refs.userLabel then
+                refs.userLabel.Text = "@" .. p.Name
             end
         end
     end
+    if _t18UpdateLogStats then _t18UpdateLogStats() end
 end)
 
 local ListBtn = Instance.new("TextButton")
@@ -4592,319 +4641,906 @@ end)
 -- Keep this whole external-window setup in a block scope so it does not
 -- consume top-level locals (Luau allows at most 200 per function).
 do
-local _tlGui = Instance.new("ScreenGui")
-_tlGui.Name = "T18TargetLogGui"
-_tlGui.ResetOnSpawn = false
-_tlGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-_tlGui.DisplayOrder = 2147483647
-_tlGui.IgnoreGuiInset = true
-pcall(function() _tlGui.Parent = game:GetService("CoreGui") end)
-if not _tlGui.Parent then
-    _tlGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-end
+    do
+        local gui = Instance.new("ScreenGui")
+        gui.Name = "T18TargetLogGui"
+        gui.ResetOnSpawn = false
+        gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        gui.DisplayOrder = 2147483647
+        gui.IgnoreGuiInset = true
+        pcall(function() gui.Parent = game:GetService("CoreGui") end)
+        if not gui.Parent then
+            gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+        end
 
-local _tlViewport = Vector2.new(1280, 720)
-pcall(function()
-    local cam = workspace.CurrentCamera
-    if cam and cam.ViewportSize.X > 0 and cam.ViewportSize.Y > 0 then
-        _tlViewport = cam.ViewportSize
-    end
-end)
-local _tlW = 360
-local _tlH = 420
-if _tlViewport.X < 420 then _tlW = math.max(260, _tlViewport.X - 24) end
-if _tlViewport.Y < 480 then _tlH = math.max(240, _tlViewport.Y - 24) end
-local _tlX = math.clamp(_tlViewport.X - _tlW - 16, 12, math.max(12, _tlViewport.X - _tlW - 12))
-local _tlY = math.clamp(math.floor((_tlViewport.Y - _tlH) * 0.5), 12, math.max(12, _tlViewport.Y - _tlH - 12))
+        local viewport = Vector2.new(1280, 720)
+        pcall(function()
+            local cam = workspace.CurrentCamera
+            if cam and cam.ViewportSize.X > 0 and cam.ViewportSize.Y > 0 then
+                viewport = cam.ViewportSize
+            end
+        end)
+        local panelW = 360
+        local panelH = 440
+        if viewport.X < 420 then panelW = math.max(260, viewport.X - 24) end
+        if viewport.Y < 480 then panelH = math.max(260, viewport.Y - 24) end
+        local panelX = math.clamp(viewport.X - panelW - 16, 12, math.max(12, viewport.X - panelW - 12))
+        local panelY = math.clamp(math.floor((viewport.Y - panelH) * 0.5), 12, math.max(12, viewport.Y - panelH - 12))
 
-TargetLogPanel = Instance.new("Frame")
-TargetLogPanel.Name = "TargetLogPanel"
-TargetLogPanel.Size = UDim2.new(0, _tlW, 0, _tlH)
-TargetLogPanel.Position = UDim2.new(0, _tlX, 0, _tlY)
-TargetLogPanel.BackgroundColor3 = Theme.Panel
-TargetLogPanel.BackgroundTransparency = 0.04
-TargetLogPanel.BorderSizePixel = 0
-TargetLogPanel.Visible = false
-TargetLogPanel.ZIndex = 40
-TargetLogPanel.Parent = _tlGui
-makeCorner(TargetLogPanel, 12)
-makeStroke(TargetLogPanel, Theme.Border, 1, 0.15)
+        TargetLogPanel = Instance.new("Frame")
+        TargetLogPanel.Name = "TargetLogPanel"
+        TargetLogPanel.Size = UDim2.new(0, panelW, 0, panelH)
+        TargetLogPanel.Position = UDim2.new(0, panelX, 0, panelY)
+        TargetLogPanel.BackgroundColor3 = Theme.Panel
+        TargetLogPanel.BackgroundTransparency = 0.03
+        TargetLogPanel.BorderSizePixel = 0
+        TargetLogPanel.Visible = false
+        TargetLogPanel.ZIndex = 40
+        TargetLogPanel.Parent = gui
+        makeCorner(TargetLogPanel, 12)
+        makeStroke(TargetLogPanel, Theme.Border, 1, 0.12)
+        makeShadow(TargetLogPanel)
+        TargetLogPanel:SetAttribute("ExpandedHeight", panelH)
+        TargetLogPanel:SetAttribute("HomeX", panelX)
+        TargetLogPanel:SetAttribute("HomeY", panelY)
+        UiFx.makeGradient(TargetLogPanel, {
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 24, 54)),
+            ColorSequenceKeypoint.new(0.52, Color3.fromRGB(10, 13, 30)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(3, 3, 6)),
+        }, 35)
+        UiFx.makeStarField(TargetLogPanel, 34)
 
-local _tlHeader = Instance.new("Frame")
-_tlHeader.Size = UDim2.new(1, 0, 0, 38)
-_tlHeader.Position = UDim2.new(0, 0, 0, 0)
-_tlHeader.BackgroundColor3 = Theme.Header
-_tlHeader.BackgroundTransparency = 0.0
-_tlHeader.BorderSizePixel = 0
-_tlHeader.ZIndex = 41
-_tlHeader.Active = true
-_tlHeader.Parent = TargetLogPanel
-makeCorner(_tlHeader, 12)
-
-local _tlHeaderFix = Instance.new("Frame")
-_tlHeaderFix.Size = UDim2.new(1, 0, 0, 12)
-_tlHeaderFix.Position = UDim2.new(0, 0, 1, -12)
-_tlHeaderFix.BackgroundColor3 = Theme.Header
-_tlHeaderFix.BackgroundTransparency = 0.0
-_tlHeaderFix.BorderSizePixel = 0
-_tlHeaderFix.ZIndex = 41
-_tlHeaderFix.Parent = _tlHeader
-
-local _tlTitle = Instance.new("TextLabel")
-_tlTitle.Size = UDim2.new(1, -48, 0, 38)
-_tlTitle.Position = UDim2.new(0, 10, 0, 0)
-_tlTitle.BackgroundTransparency = 1
-_tlTitle.Text = "سجل الاستهداف"
-_tlTitle.TextColor3 = Theme.Text
-_tlTitle.TextXAlignment = Enum.TextXAlignment.Right
-_tlTitle.Font = Enum.Font.GothamBold
-_tlTitle.TextSize = 13
-_tlTitle.ZIndex = 42
-_tlTitle.Parent = _tlHeader
-
-local _tlClose = Instance.new("TextButton")
-_tlClose.Size = UDim2.new(0, 26, 0, 26)
-_tlClose.Position = UDim2.new(0, 6, 0, 6)
-_tlClose.BackgroundColor3 = Theme.Danger
-_tlClose.BackgroundTransparency = 0.1
-_tlClose.Text = "x"
-_tlClose.TextColor3 = Color3.fromRGB(255,255,255)
-_tlClose.Font = Enum.Font.GothamBold
-_tlClose.TextSize = 16
-_tlClose.AutoButtonColor = false
-_tlClose.ZIndex = 42
-_tlClose.Parent = _tlHeader
-makeCorner(_tlClose, 7)
-
-do
-    local _tlDragging = false
-    local _tlDragStart = nil
-    local _tlDragPos = nil
-
-    local function _tlClampDrag(input)
-        local delta = input.Position - _tlDragStart
-        local cam = workspace.CurrentCamera
-        local vp = (cam and cam.ViewportSize) or _tlViewport
-        if vp.X <= 0 or vp.Y <= 0 then vp = _tlViewport end
-        local pw = TargetLogPanel.AbsoluteSize.X
-        local ph = TargetLogPanel.AbsoluteSize.Y
-        if pw <= 0 then pw = _tlW end
-        if ph <= 0 then ph = _tlH end
-        local nx = math.clamp(_tlDragPos.X.Offset + delta.X, 0, math.max(0, vp.X - pw))
-        local ny = math.clamp(_tlDragPos.Y.Offset + delta.Y, 0, math.max(0, vp.Y - ph))
-        TargetLogPanel.Position = UDim2.new(0, nx, 0, ny)
+        do
+            local topLine = Instance.new("Frame")
+            topLine.Name = "TlTopLine"
+            topLine.Size = UDim2.new(1, -28, 0, 1)
+            topLine.Position = UDim2.new(0, 14, 0, 0)
+            topLine.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            topLine.BackgroundTransparency = 0.55
+            topLine.BorderSizePixel = 0
+            topLine.ZIndex = 44
+            topLine.Parent = TargetLogPanel
+            local topGrad = Instance.new("UIGradient")
+            topGrad.Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 1),
+                NumberSequenceKeypoint.new(0.5, 0.25),
+                NumberSequenceKeypoint.new(1, 1),
+            })
+            topGrad.Parent = topLine
+        end
     end
 
-    _tlHeader.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-            or input.UserInputType == Enum.UserInputType.Touch then
-            _tlDragging = true
-            _tlDragStart = input.Position
-            _tlDragPos = TargetLogPanel.Position
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    _tlDragging = false
+    do
+        local header = Instance.new("Frame")
+        header.Name = "TlHeader"
+        header.Size = UDim2.new(1, 0, 0, 46)
+        header.BackgroundColor3 = Theme.Header
+        header.BackgroundTransparency = 0.02
+        header.BorderSizePixel = 0
+        header.Active = true
+        header.ZIndex = 41
+        header.Parent = TargetLogPanel
+        makeCorner(header, 12)
+        UiFx.makeGradient(header, {
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(7, 8, 13)),
+            ColorSequenceKeypoint.new(0.6, Color3.fromRGB(9, 11, 22)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 19, 42)),
+        }, 15)
+        UiFx.makeStarField(header, 16)
+
+        local headerFix = Instance.new("Frame")
+        headerFix.Name = "TlHeaderFix"
+        headerFix.Size = UDim2.new(1, 0, 0, 12)
+        headerFix.Position = UDim2.new(0, 0, 1, -12)
+        headerFix.BackgroundColor3 = Color3.fromRGB(15, 19, 42)
+        headerFix.BackgroundTransparency = 0.08
+        headerFix.BorderSizePixel = 0
+        headerFix.ZIndex = 41
+        headerFix.Parent = header
+
+        local accent = Instance.new("Frame")
+        accent.Name = "TlHeaderAccent"
+        accent.Size = UDim2.new(1, -24, 0, 1)
+        accent.Position = UDim2.new(0, 12, 1, -1)
+        accent.BackgroundColor3 = Color3.fromRGB(220, 230, 255)
+        accent.BorderSizePixel = 0
+        accent.ZIndex = 43
+        accent.Parent = header
+        local accentGrad = Instance.new("UIGradient")
+        accentGrad.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 50, 90)),
+            ColorSequenceKeypoint.new(0.5, Color3.fromRGB(225, 235, 255)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 50, 90)),
+        })
+        accentGrad.Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0.9),
+            NumberSequenceKeypoint.new(0.5, 0.05),
+            NumberSequenceKeypoint.new(1, 0.9),
+        })
+        accentGrad.Parent = accent
+
+        do
+            local badge = Instance.new("Frame")
+            badge.Name = "TlBadge"
+            badge.Size = UDim2.new(0, 28, 0, 28)
+            badge.Position = UDim2.new(1, -38, 0, 9)
+            badge.BackgroundColor3 = Theme.PanelSoft
+            badge.BackgroundTransparency = 0.1
+            badge.BorderSizePixel = 0
+            badge.ZIndex = 42
+            badge.Parent = header
+            makeCorner(badge, 9)
+            makeStroke(badge, Theme.Border, 1, 0.22)
+            UiFx.makeStarField(badge, 6)
+
+            local badgeIcon = Instance.new("TextLabel")
+            badgeIcon.Size = UDim2.new(1, 0, 1, 0)
+            badgeIcon.BackgroundTransparency = 1
+            badgeIcon.Text = "◎"
+            badgeIcon.TextColor3 = Theme.Text
+            badgeIcon.Font = Enum.Font.GothamBold
+            badgeIcon.TextSize = 17
+            badgeIcon.ZIndex = 44
+            badgeIcon.Parent = badge
+        end
+
+        do
+            local title = Instance.new("TextLabel")
+            title.Size = UDim2.new(1, -212, 0, 19)
+            title.Position = UDim2.new(0, 164, 0, 5)
+            title.BackgroundTransparency = 1
+            title.Text = "سجل الاستهداف"
+            title.TextColor3 = Theme.Text
+            title.TextXAlignment = Enum.TextXAlignment.Right
+            title.Font = Enum.Font.GothamBlack
+            title.TextSize = 14
+            title.TextTruncate = Enum.TextTruncate.AtEnd
+            title.ZIndex = 42
+            title.Parent = header
+
+            local subtitle = Instance.new("TextLabel")
+            subtitle.Size = UDim2.new(1, -212, 0, 14)
+            subtitle.Position = UDim2.new(0, 164, 0, 25)
+            subtitle.BackgroundTransparency = 1
+            subtitle.Text = "صور وأوقات • تتبع مباشر"
+            subtitle.TextColor3 = Theme.Muted
+            subtitle.TextXAlignment = Enum.TextXAlignment.Right
+            subtitle.Font = Enum.Font.Gotham
+            subtitle.TextSize = 9
+            subtitle.TextTruncate = Enum.TextTruncate.AtEnd
+            subtitle.ZIndex = 42
+            subtitle.Parent = header
+        end
+
+        do
+            local live = Instance.new("Frame")
+            live.Name = "TlLive"
+            live.Size = UDim2.new(0, 92, 0, 24)
+            live.Position = UDim2.new(0, 68, 0, 11)
+            live.BackgroundColor3 = Theme.PanelSoft
+            live.BackgroundTransparency = 0.16
+            live.BorderSizePixel = 0
+            live.ZIndex = 42
+            live.Parent = header
+            makeCorner(live, 8)
+            makeStroke(live, Theme.Border, 1, 0.3)
+            UiFx.makeStarField(live, 5)
+
+            local liveDot = Instance.new("Frame")
+            liveDot.Name = "TlLiveDot"
+            liveDot.Size = UDim2.new(0, 7, 0, 7)
+            liveDot.Position = UDim2.new(1, -14, 0.5, -3.5)
+            liveDot.BackgroundColor3 = Color3.fromRGB(90, 220, 120)
+            liveDot.BorderSizePixel = 0
+            liveDot.ZIndex = 44
+            liveDot.Parent = live
+            makeCorner(liveDot, 99)
+            makeStroke(liveDot, Color3.fromRGB(4, 6, 8), 1, 0.2)
+
+            local liveText = Instance.new("TextLabel")
+            liveText.Name = "TlLiveText"
+            liveText.Size = UDim2.new(1, -30, 1, 0)
+            liveText.Position = UDim2.new(0, 6, 0, 0)
+            liveText.BackgroundTransparency = 1
+            liveText.Text = "0 متصل"
+            liveText.TextColor3 = Theme.Text
+            liveText.TextXAlignment = Enum.TextXAlignment.Right
+            liveText.Font = Enum.Font.GothamBold
+            liveText.TextSize = 9
+            liveText.ZIndex = 44
+            liveText.Parent = live
+
+            local pulse = TweenService:Create(liveDot, TweenInfo.new(1.15, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
+                BackgroundTransparency = 0.55,
+            })
+            pulse:Play()
+        end
+
+        do
+            local close = Instance.new("TextButton")
+            close.Name = "TlClose"
+            close.Size = UDim2.new(0, 26, 0, 26)
+            close.Position = UDim2.new(0, 6, 0, 10)
+            close.BackgroundColor3 = Theme.Danger
+            close.BackgroundTransparency = 0.08
+            close.Text = "×"
+            close.TextColor3 = Color3.fromRGB(255, 240, 244)
+            close.Font = Enum.Font.GothamBold
+            close.TextSize = 18
+            close.AutoButtonColor = false
+            close.ZIndex = 43
+            close.Parent = header
+            makeCorner(close, 8)
+            makeStroke(close, Color3.fromRGB(240, 110, 135), 1, 0.45)
+            close.MouseEnter:Connect(function()
+                TweenService:Create(close, TweenInfo.new(0.12), {BackgroundColor3 = Color3.fromRGB(225, 70, 95)}):Play()
+            end)
+            close.MouseLeave:Connect(function()
+                TweenService:Create(close, TweenInfo.new(0.18), {BackgroundColor3 = Theme.Danger}):Play()
+            end)
+            close.MouseButton1Click:Connect(function()
+                _t18SetTargetLogVisible(false)
+            end)
+        end
+
+        do
+            local minimize = Instance.new("TextButton")
+            minimize.Name = "TlMin"
+            minimize.Size = UDim2.new(0, 26, 0, 26)
+            minimize.Position = UDim2.new(0, 36, 0, 10)
+            minimize.BackgroundColor3 = Theme.ButtonDefaultAlt
+            minimize.BackgroundTransparency = 0.08
+            minimize.Text = "–"
+            minimize.TextColor3 = Theme.Text
+            minimize.Font = Enum.Font.GothamBold
+            minimize.TextSize = 18
+            minimize.AutoButtonColor = false
+            minimize.ZIndex = 43
+            minimize.Parent = header
+            makeCorner(minimize, 8)
+            makeStroke(minimize, Theme.Border, 1, 0.25)
+            minimize.MouseEnter:Connect(function()
+                TweenService:Create(minimize, TweenInfo.new(0.12), {BackgroundColor3 = Theme.Active}):Play()
+            end)
+            minimize.MouseLeave:Connect(function()
+                TweenService:Create(minimize, TweenInfo.new(0.18), {BackgroundColor3 = Theme.ButtonDefaultAlt}):Play()
+            end)
+            minimize.MouseButton1Click:Connect(function()
+                _t18ToggleTargetLogMinimize()
+            end)
+        end
+    end
+
+    do
+        local footer = Instance.new("Frame")
+        footer.Name = "TlFooter"
+        footer.Size = UDim2.new(1, -16, 0, 36)
+        footer.Position = UDim2.new(0, 8, 1, -46)
+        footer.BackgroundColor3 = Theme.Card
+        footer.BackgroundTransparency = 0.06
+        footer.BorderSizePixel = 0
+        footer.ZIndex = 41
+        footer.Parent = TargetLogPanel
+        makeCorner(footer, 10)
+        makeStroke(footer, Theme.Border, 1, 0.25)
+        UiFx.makeGradient(footer, {
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(15, 18, 36)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(5, 6, 10)),
+        }, 90)
+        UiFx.makeStarField(footer, 8)
+
+        local function addStat(x, width, caption, valueColor, name)
+            local value = Instance.new("TextLabel")
+            value.Name = name
+            value.Size = UDim2.new(width, 0, 0, 17)
+            value.Position = UDim2.new(x, 0, 0, 3)
+            value.BackgroundTransparency = 1
+            value.Text = "0"
+            value.TextColor3 = valueColor
+            value.Font = Enum.Font.GothamBold
+            value.TextSize = 13
+            value.TextXAlignment = Enum.TextXAlignment.Center
+            value.ZIndex = 43
+            value.Parent = footer
+
+            local cap = Instance.new("TextLabel")
+            cap.Size = UDim2.new(width, 0, 0, 11)
+            cap.Position = UDim2.new(x, 0, 0, 21)
+            cap.BackgroundTransparency = 1
+            cap.Text = caption
+            cap.TextColor3 = Theme.Muted
+            cap.Font = Enum.Font.Gotham
+            cap.TextSize = 8
+            cap.TextXAlignment = Enum.TextXAlignment.Center
+            cap.ZIndex = 43
+            cap.Parent = footer
+        end
+
+        addStat(0.667, 0.333, "الإجمالي", Theme.Text, "TlStatTotalVal")
+        addStat(0.333, 0.334, "متصل الآن", Color3.fromRGB(100, 220, 120), "TlStatOnlineVal")
+        addStat(0, 0.333, "مرات الخروج", Color3.fromRGB(235, 160, 70), "TlStatLeaveVal")
+
+        for _, sx in ipairs({0.333, 0.667}) do
+            local sep = Instance.new("Frame")
+            sep.Size = UDim2.new(0, 1, 0, 20)
+            sep.Position = UDim2.new(sx, 0, 0.5, -10)
+            sep.BackgroundColor3 = Theme.Border
+            sep.BackgroundTransparency = 0.45
+            sep.BorderSizePixel = 0
+            sep.ZIndex = 42
+            sep.Parent = footer
+        end
+    end
+
+    _t18TargetLogMinimized = false
+    _t18TargetLogOpen = false
+    _t18TargetLogMinToken = 0
+    _t18TargetLogSlideToken = 0
+
+    function _t18UpdateLogStats()
+        if not TargetLogPanel then return end
+        local total, online, leaves = 0, 0, 0
+        for _, ent in pairs(_T18TargetLog) do
+            total = total + 1
+            if ent.online then online = online + 1 end
+            leaves = leaves + (ent.leaveCount or 0)
+        end
+        local totalVal = TargetLogPanel:FindFirstChild("TlStatTotalVal", true)
+        local onlineVal = TargetLogPanel:FindFirstChild("TlStatOnlineVal", true)
+        local leaveVal = TargetLogPanel:FindFirstChild("TlStatLeaveVal", true)
+        local liveText = TargetLogPanel:FindFirstChild("TlLiveText", true)
+        local liveDot = TargetLogPanel:FindFirstChild("TlLiveDot", true)
+        if totalVal then totalVal.Text = tostring(total) end
+        if onlineVal then onlineVal.Text = tostring(online) end
+        if leaveVal then leaveVal.Text = tostring(leaves) end
+        if liveText then liveText.Text = tostring(online) .. " متصل" end
+        if liveDot then
+            liveDot.BackgroundColor3 = online > 0 and Color3.fromRGB(90, 220, 120) or Color3.fromRGB(120, 124, 136)
+        end
+    end
+
+    function _t18ToggleTargetLogMinimize()
+        if not TargetLogPanel then return end
+        _t18TargetLogMinimized = not _t18TargetLogMinimized
+        _t18TargetLogMinToken = (_t18TargetLogMinToken or 0) + 1
+        local token = _t18TargetLogMinToken
+        local expanded = TargetLogPanel:GetAttribute("ExpandedHeight") or 440
+        local targetH = _t18TargetLogMinimized and 46 or expanded
+        local minBtn = TargetLogPanel:FindFirstChild("TlMin", true)
+        if minBtn then minBtn.Text = _t18TargetLogMinimized and "+" or "–" end
+        local headerFix = TargetLogPanel:FindFirstChild("TlHeaderFix", true)
+        if headerFix then headerFix.Visible = not _t18TargetLogMinimized end
+        local names = {"TlFilter", "TlClear", "TlScroll", "TlFooter", "TlSuggestions"}
+        if _t18TargetLogMinimized then
+            for _, nm in ipairs(names) do
+                local el = TargetLogPanel:FindFirstChild(nm, true)
+                if el then el.Visible = false end
+            end
+        end
+        local tween = TweenService:Create(TargetLogPanel, TweenInfo.new(0.26, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0, TargetLogPanel.Size.X.Offset, 0, targetH),
+        })
+        tween:Play()
+        if not _t18TargetLogMinimized then
+            tween.Completed:Connect(function()
+                if token ~= _t18TargetLogMinToken or _t18TargetLogMinimized then return end
+                for _, nm in ipairs(names) do
+                    local el = TargetLogPanel:FindFirstChild(nm, true)
+                    if el then
+                        el.Visible = (nm ~= "TlSuggestions")
+                    end
+                end
+                local scroll = TargetLogPanel:FindFirstChild("TlScroll", true)
+                if scroll then scroll.Visible = true end
+            end)
+        end
+    end
+
+    function _t18SetTargetLogVisible(show)
+        if not TargetLogPanel then return end
+        _t18TargetLogOpen = show
+        _t18TargetLogSlideToken = (_t18TargetLogSlideToken or 0) + 1
+        local token = _t18TargetLogSlideToken
+        local homeX = TargetLogPanel:GetAttribute("HomeX") or TargetLogPanel.Position.X.Offset
+        local homeY = TargetLogPanel:GetAttribute("HomeY") or TargetLogPanel.Position.Y.Offset
+        if show then
+            pcall(function() _refreshTargetLog() end)
+            local sug = TargetLogPanel:FindFirstChild("TlSuggestions", true)
+            if sug then sug.Visible = false end
+            local scroll = TargetLogPanel:FindFirstChild("TlScroll", true)
+            if scroll and not _t18TargetLogMinimized then scroll.Visible = true end
+            TargetLogPanel.Position = UDim2.new(0, homeX + 16, 0, homeY)
+            TargetLogPanel.Visible = true
+            local tween = TweenService:Create(TargetLogPanel, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                Position = UDim2.new(0, homeX, 0, homeY),
+            })
+            tween:Play()
+        else
+            local tween = TweenService:Create(TargetLogPanel, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+                Position = UDim2.new(0, homeX + 16, 0, homeY),
+            })
+            tween.Completed:Connect(function()
+                if token ~= _t18TargetLogSlideToken then return end
+                TargetLogPanel.Visible = false
+                TargetLogPanel.Position = UDim2.new(0, homeX, 0, homeY)
+            end)
+            tween:Play()
+        end
+    end
+
+    do
+        local header = TargetLogPanel:FindFirstChild("TlHeader")
+        if header then
+            local dragging = false
+            local dragStart = nil
+            local dragPos = nil
+
+            local function clampDrag(input)
+                local delta = input.Position - dragStart
+                local cam = workspace.CurrentCamera
+                local vp = (cam and cam.ViewportSize) or Vector2.new(1280, 720)
+                if vp.X <= 0 or vp.Y <= 0 then vp = Vector2.new(1280, 720) end
+                local pw = TargetLogPanel.AbsoluteSize.X
+                local ph = TargetLogPanel.AbsoluteSize.Y
+                if pw <= 0 then pw = TargetLogPanel.Size.X.Offset end
+                if ph <= 0 then ph = TargetLogPanel:GetAttribute("ExpandedHeight") or 440 end
+                local nx = math.clamp(dragPos.X.Offset + delta.X, 0, math.max(0, vp.X - pw))
+                local ny = math.clamp(dragPos.Y.Offset + delta.Y, 0, math.max(0, vp.Y - ph))
+                TargetLogPanel.Position = UDim2.new(0, nx, 0, ny)
+                TargetLogPanel:SetAttribute("HomeX", nx)
+                TargetLogPanel:SetAttribute("HomeY", ny)
+            end
+
+            header.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1
+                    or input.UserInputType == Enum.UserInputType.Touch then
+                    dragging = true
+                    dragStart = input.Position
+                    dragPos = TargetLogPanel.Position
+                    input.Changed:Connect(function()
+                        if input.UserInputState == Enum.UserInputState.End then
+                            dragging = false
+                        end
+                    end)
+                end
+            end)
+
+            UserInputService.InputChanged:Connect(function(input)
+                if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
+                    or input.UserInputType == Enum.UserInputType.Touch) then
+                    clampDrag(input)
                 end
             end)
         end
-    end)
+    end
 
-    UserInputService.InputChanged:Connect(function(input)
-        if _tlDragging and (input.UserInputType == Enum.UserInputType.MouseMovement
-            or input.UserInputType == Enum.UserInputType.Touch) then
-            _tlClampDrag(input)
-        end
-    end)
-end
-
-_tlClose.MouseButton1Click:Connect(function() TargetLogPanel.Visible = false end)
+    _t18UpdateLogStats()
 end
 
 local _tlFilter = Instance.new("TextBox")
-_tlFilter.Size = UDim2.new(1, -20, 0, 28)
-_tlFilter.Position = UDim2.new(0, 10, 0, 44)
+_tlFilter.Name = "TlFilter"
+_tlFilter.Size = UDim2.new(1, -20, 0, 32)
+_tlFilter.Position = UDim2.new(0, 10, 0, 52)
 _tlFilter.BackgroundColor3 = Theme.Input
-_tlFilter.BackgroundTransparency = 0.15
-_tlFilter.PlaceholderText = "اكتب اسم اللاعب هنا..."
+_tlFilter.BackgroundTransparency = 0.1
+_tlFilter.PlaceholderText = "ابحث عن لاعب في السجل..."
 _tlFilter.Text = ""
 _tlFilter.TextColor3 = Theme.Text
 _tlFilter.PlaceholderColor3 = Theme.Muted
-_tlFilter.Font = Enum.Font.Gotham
-_tlFilter.TextSize = 13
+_tlFilter.Font = Enum.Font.GothamMedium
+_tlFilter.TextSize = 12
 _tlFilter.TextXAlignment = Enum.TextXAlignment.Right
 _tlFilter.ClearTextOnFocus = false
 _tlFilter.ZIndex = 41
 _tlFilter.Parent = TargetLogPanel
-makeCorner(_tlFilter, 8)
-makeStroke(_tlFilter, Theme.Border, 1, 0.2)
+makeCorner(_tlFilter, 9)
+UiFx.makeGradient(_tlFilter, {
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(22, 24, 38)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(11, 11, 16)),
+}, 90)
+do
+    local filterStroke = makeStroke(_tlFilter, Theme.Border, 1, 0.24)
+    local filterPad = Instance.new("UIPadding")
+    filterPad.PaddingRight = UDim.new(0, 30)
+    filterPad.PaddingLeft = UDim.new(0, 8)
+    filterPad.Parent = _tlFilter
+
+    local searchIcon = Instance.new("TextLabel")
+    searchIcon.Name = "TlSearchIcon"
+    searchIcon.Size = UDim2.new(0, 22, 0, 22)
+    searchIcon.Position = UDim2.new(1, -27, 0.5, -11)
+    searchIcon.BackgroundColor3 = Theme.PanelSoft
+    searchIcon.BackgroundTransparency = 0.12
+    searchIcon.Text = "@"
+    searchIcon.TextColor3 = Theme.Accent
+    searchIcon.Font = Enum.Font.GothamBold
+    searchIcon.TextSize = 13
+    searchIcon.ZIndex = 43
+    searchIcon.Parent = _tlFilter
+    makeCorner(searchIcon, 6)
+    makeStroke(searchIcon, Theme.Border, 1, 0.3)
+
+    _tlFilter.Focused:Connect(function()
+        filterStroke.Color = Theme.Accent
+        filterStroke.Transparency = 0.08
+        searchIcon.TextColor3 = Theme.Text
+    end)
+    _tlFilter.FocusLost:Connect(function()
+        filterStroke.Color = Theme.Border
+        filterStroke.Transparency = 0.24
+        searchIcon.TextColor3 = Theme.Accent
+    end)
+end
 
 local _tlClear = Instance.new("TextButton")
-_tlClear.Size = UDim2.new(1, -20, 0, 24)
-_tlClear.Position = UDim2.new(0, 10, 0, 78)
-_tlClear.BackgroundColor3 = Theme.Danger
-_tlClear.BackgroundTransparency = 0.15
+_tlClear.Name = "TlClear"
+_tlClear.Size = UDim2.new(1, -20, 0, 28)
+_tlClear.Position = UDim2.new(0, 10, 0, 88)
+_tlClear.BackgroundColor3 = Color3.fromRGB(52, 15, 24)
+_tlClear.BackgroundTransparency = 0.06
 _tlClear.Text = "مسح السجل"
-_tlClear.TextColor3 = Color3.fromRGB(255,255,255)
+_tlClear.TextColor3 = Color3.fromRGB(255, 214, 222)
 _tlClear.Font = Enum.Font.GothamBold
-_tlClear.TextSize = 12
+_tlClear.TextSize = 11
 _tlClear.AutoButtonColor = false
 _tlClear.ZIndex = 41
 _tlClear.Parent = TargetLogPanel
-makeCorner(_tlClear, 7)
-makeStroke(_tlClear, Theme.Danger, 1, 0.5)
+makeCorner(_tlClear, 8)
+UiFx.makeGradient(_tlClear, {
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(68, 18, 30)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(24, 8, 12)),
+}, 90)
+do
+    local clearStroke = makeStroke(_tlClear, Color3.fromRGB(120, 40, 55), 1, 0.35)
+    local clearPad = Instance.new("UIPadding")
+    clearPad.PaddingRight = UDim.new(0, 26)
+    clearPad.Parent = _tlClear
+
+    local clearIcon = Instance.new("TextLabel")
+    clearIcon.Name = "TlClearIcon"
+    clearIcon.Size = UDim2.new(0, 20, 1, 0)
+    clearIcon.Position = UDim2.new(1, -26, 0, 0)
+    clearIcon.BackgroundTransparency = 1
+    clearIcon.Text = "×"
+    clearIcon.TextColor3 = Color3.fromRGB(255, 120, 140)
+    clearIcon.Font = Enum.Font.GothamBlack
+    clearIcon.TextSize = 15
+    clearIcon.ZIndex = 43
+    clearIcon.Parent = _tlClear
+
+    _tlClear.MouseEnter:Connect(function()
+        TweenService:Create(_tlClear, TweenInfo.new(0.12), {BackgroundTransparency = 0.0}):Play()
+        clearStroke.Transparency = 0.1
+    end)
+    _tlClear.MouseLeave:Connect(function()
+        TweenService:Create(_tlClear, TweenInfo.new(0.18), {BackgroundTransparency = 0.06}):Play()
+        clearStroke.Transparency = 0.35
+    end)
+end
 
 local _tlScroll = Instance.new("ScrollingFrame")
-_tlScroll.Size = UDim2.new(1, -20, 1, -108)
-_tlScroll.Position = UDim2.new(0, 10, 0, 108)
+_tlScroll.Name = "TlScroll"
+_tlScroll.Size = UDim2.new(1, -20, 1, -176)
+_tlScroll.Position = UDim2.new(0, 10, 0, 122)
 _tlScroll.BackgroundTransparency = 1
 _tlScroll.BorderSizePixel = 0
-_tlScroll.ScrollBarThickness = 2
+_tlScroll.ScrollBarThickness = 3
 _tlScroll.ScrollBarImageColor3 = Theme.Border
+_tlScroll.ScrollBarImageTransparency = 0.25
 _tlScroll.CanvasSize = UDim2.new(0,0,0,0)
 _tlScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+_tlScroll.ScrollingDirection = Enum.ScrollingDirection.Y
 _tlScroll.ZIndex = 41
 _tlScroll.Parent = TargetLogPanel
-local _tlLayout = Instance.new("UIListLayout")
-_tlLayout.SortOrder = Enum.SortOrder.LayoutOrder
-_tlLayout.Padding = UDim.new(0, 3)
-_tlLayout.Parent = _tlScroll
-local _tlPad2 = Instance.new("UIPadding")
-_tlPad2.PaddingBottom = UDim.new(0,6)
-_tlPad2.PaddingTop = UDim.new(0,2)
-_tlPad2.Parent = _tlScroll
+do
+    local layout = Instance.new("UIListLayout")
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Padding = UDim.new(0, 6)
+    layout.Parent = _tlScroll
+    local pad = Instance.new("UIPadding")
+    pad.PaddingBottom = UDim.new(0, 8)
+    pad.PaddingTop = UDim.new(0, 2)
+    pad.PaddingLeft = UDim.new(0, 1)
+    pad.PaddingRight = UDim.new(0, 1)
+    pad.Parent = _tlScroll
+end
 
 _refreshTargetLog = function()
     _T18TimerRefs = {}
     for _, ch in ipairs(_tlScroll:GetChildren()) do
-        if ch:IsA("Frame") or ch:IsA("TextLabel") then ch:Destroy() end
+        if ch:IsA("GuiObject") then ch:Destroy() end
     end
     local flt = _tlFilter.Text:lower():gsub("^@",""):gsub("%s+","")
     local rows = {}
     for nm, ent in pairs(_T18TargetLog) do
-        if flt == "" or nm:lower():find(flt,1,true) then
+        local dn = (ent.displayName or nm):lower()
+        if flt == "" or nm:lower():find(flt,1,true) or dn:find(flt,1,true) then
             table.insert(rows, {name=nm, ent=ent})
         end
     end
     table.sort(rows, function(a,b) return a.ent.startTime > b.ent.startTime end)
     if #rows == 0 then
-        local el = Instance.new("TextLabel")
-        el.Size = UDim2.new(1,0,0,40)
-        el.BackgroundTransparency = 1
-        el.Text = "لا يوجد سجل"
-        el.TextColor3 = Theme.Muted
-        el.TextXAlignment = Enum.TextXAlignment.Center
-        el.Font = Enum.Font.Gotham
-        el.TextSize = 13
-        el.ZIndex = 43
-        el.Parent = _tlScroll
+        local empty = Instance.new("Frame")
+        empty.Name = "TlEmpty"
+        empty.Size = UDim2.new(1, 0, 0, 170)
+        empty.BackgroundTransparency = 1
+        empty.ZIndex = 42
+        empty.Parent = _tlScroll
+
+        local badge = Instance.new("Frame")
+        badge.Size = UDim2.new(0, 56, 0, 56)
+        badge.Position = UDim2.new(0.5, -28, 0, 18)
+        badge.BackgroundColor3 = Theme.PanelSoft
+        badge.BackgroundTransparency = 0.06
+        badge.BorderSizePixel = 0
+        badge.ZIndex = 43
+        badge.Parent = empty
+        makeCorner(badge, 18)
+        makeStroke(badge, Theme.Border, 1, 0.2)
+        UiFx.makeStarField(badge, 8)
+
+        local icon = Instance.new("TextLabel")
+        icon.Size = UDim2.new(1, 0, 1, 0)
+        icon.BackgroundTransparency = 1
+        icon.Text = "◎"
+        icon.TextColor3 = Theme.Accent
+        icon.Font = Enum.Font.GothamBold
+        icon.TextSize = 24
+        icon.ZIndex = 44
+        icon.Parent = badge
+
+        local title = Instance.new("TextLabel")
+        title.Size = UDim2.new(1, 0, 0, 20)
+        title.Position = UDim2.new(0, 0, 0, 86)
+        title.BackgroundTransparency = 1
+        title.Text = flt ~= "" and "لا توجد نتائج" or "السجل فارغ"
+        title.TextColor3 = Theme.Text
+        title.Font = Enum.Font.GothamBold
+        title.TextSize = 13
+        title.TextXAlignment = Enum.TextXAlignment.Center
+        title.ZIndex = 43
+        title.Parent = empty
+
+        local sub = Instance.new("TextLabel")
+        sub.Size = UDim2.new(1, -40, 0, 30)
+        sub.Position = UDim2.new(0, 20, 0, 108)
+        sub.BackgroundTransparency = 1
+        sub.Text = flt ~= "" and "جرّب اسمًا آخر أو امسح البحث" or "حدد لاعباً وسيظهر هنا مع صورته ووقته"
+        sub.TextColor3 = Theme.Muted
+        sub.Font = Enum.Font.Gotham
+        sub.TextSize = 10
+        sub.TextWrapped = true
+        sub.TextXAlignment = Enum.TextXAlignment.Center
+        sub.ZIndex = 43
+        sub.Parent = empty
+
+        if _t18UpdateLogStats then _t18UpdateLogStats() end
         return
     end
     for i, rd in ipairs(rows) do
-        local isOnline = rd.ent.online
-        local hasLeft  = rd.ent.leaveCount > 0
+        local ent = rd.ent
+        local isOnline = ent.online
+        local leaveCount = ent.leaveCount or 0
+        local hasLeft = leaveCount > 0
+        local statusColor = isOnline and Color3.fromRGB(80, 210, 110) or Color3.fromRGB(225, 82, 96)
+        local rowBg = isOnline and Color3.fromRGB(15, 31, 22) or (hasLeft and Color3.fromRGB(34, 15, 19) or Color3.fromRGB(13, 14, 20))
+        local rowStrokeColor = isOnline and Color3.fromRGB(42, 92, 60) or (hasLeft and Color3.fromRGB(92, 34, 44) or Theme.Border)
+        local hoverBg = isOnline and Color3.fromRGB(23, 48, 34) or (hasLeft and Color3.fromRGB(48, 22, 28) or Color3.fromRGB(23, 25, 38))
 
-        local rowBg = isOnline and Color3.fromRGB(16,30,20) or (hasLeft and Color3.fromRGB(30,14,14) or Theme.Card)
-        local rowStroke = isOnline and Color3.fromRGB(40,80,50) or (hasLeft and Color3.fromRGB(80,30,30) or Theme.Border)
-
-        local row = Instance.new("Frame")
-        row.Size = UDim2.new(1,0,0,50)
+        local row = Instance.new("TextButton")
+        row.Name = "TlRow_" .. rd.name
+        row.Size = UDim2.new(1, 0, 0, 58)
         row.BackgroundColor3 = rowBg
-        row.BackgroundTransparency = 0.1
+        row.BackgroundTransparency = 0.06
         row.BorderSizePixel = 0
+        row.AutoButtonColor = false
+        row.Text = ""
         row.LayoutOrder = i
         row.ZIndex = 42
+        row.ClipsDescendants = true
         row.Parent = _tlScroll
-        makeCorner(row, 8)
-        makeStroke(row, rowStroke, 1, 0.3)
+        makeCorner(row, 9)
+        local rowStroke = makeStroke(row, rowStrokeColor, 1, 0.32)
+
         _T18TimerRefs[rd.name] = _T18TimerRefs[rd.name] or {}
-        _T18TimerRefs[rd.name].row = row
+        local refs = _T18TimerRefs[rd.name]
+        refs.row = row
+        refs.stroke = rowStroke
+        refs.rowBg = rowBg
+        refs.hoverBg = hoverBg
 
         local accent = Instance.new("Frame")
-        accent.Size = UDim2.new(0, 3, 1, -10)
-        accent.Position = UDim2.new(0, 42, 0, 5)
-        accent.BackgroundColor3 = isOnline and Color3.fromRGB(80,200,100) or (hasLeft and Color3.fromRGB(200,70,70) or Theme.Muted)
-        accent.BackgroundTransparency = 0.2
+        accent.Size = UDim2.new(0, 3, 0, 36)
+        accent.Position = UDim2.new(1, -3, 0, 11)
+        accent.BackgroundColor3 = statusColor
+        accent.BackgroundTransparency = 0.12
         accent.BorderSizePixel = 0
         accent.ZIndex = 43
         accent.Parent = row
         makeCorner(accent, 2)
+        refs.accent = accent
 
-        local nmLbl = Instance.new("TextLabel")
-        nmLbl.Size = UDim2.new(1, -96, 0, 20)
-        nmLbl.Position = UDim2.new(0, 52, 0, 6)
-        nmLbl.BackgroundTransparency = 1
-        nmLbl.Text = rd.name
-        nmLbl.TextColor3 = Theme.Text
-        nmLbl.TextXAlignment = Enum.TextXAlignment.Right
-        nmLbl.Font = Enum.Font.GothamBold
-        nmLbl.TextSize = 13
-        nmLbl.TextTruncate = Enum.TextTruncate.AtEnd
-        nmLbl.ZIndex = 43
-        nmLbl.Parent = row
+        local ring = Instance.new("Frame")
+        ring.Size = UDim2.new(0, 40, 0, 40)
+        ring.Position = UDim2.new(1, -50, 0, 9)
+        ring.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        ring.BorderSizePixel = 0
+        ring.ZIndex = 44
+        ring.Parent = row
+        makeCorner(ring, 99)
+        UiFx.makeGradient(ring, {
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+            ColorSequenceKeypoint.new(0.5, Color3.fromRGB(78, 82, 96)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 255, 255)),
+        }, 0)
 
-        local stLbl = Instance.new("TextLabel")
-        stLbl.Size = UDim2.new(1, -96, 0, 14)
-        stLbl.Position = UDim2.new(0, 52, 0, 28)
-        stLbl.BackgroundTransparency = 1
-        stLbl.Text = isOnline and "• في السيرفر" or "• خرج من السيرفر"
-        stLbl.TextColor3 = isOnline and Color3.fromRGB(90,210,110) or Color3.fromRGB(220,80,80)
-        stLbl.TextXAlignment = Enum.TextXAlignment.Right
-        stLbl.Font = Enum.Font.Gotham
-        stLbl.TextSize = 10
-        stLbl.ZIndex = 43
-        stLbl.Parent = row
-        _T18TimerRefs[rd.name].status = stLbl
+        local avatar = Instance.new("ImageLabel")
+        avatar.AnchorPoint = Vector2.new(0.5, 0.5)
+        avatar.Size = UDim2.new(1, -4, 1, -4)
+        avatar.Position = UDim2.new(0.5, 0, 0.5, 0)
+        avatar.BackgroundColor3 = Color3.fromRGB(18, 19, 26)
+        avatar.BorderSizePixel = 0
+        avatar.ScaleType = Enum.ScaleType.Crop
+        avatar.ZIndex = 45
+        avatar.Parent = ring
+        makeCorner(avatar, 99)
 
-        local sinceLabel = Instance.new("TextLabel")
-        sinceLabel.Size = UDim2.new(0, 50, 0, 14)
-        sinceLabel.Position = UDim2.new(0, 52, 0, 14)
-        sinceLabel.BackgroundTransparency = 1
-        sinceLabel.Text = _t18FmtTimer(_t18OnlineTime(rd.ent))
-        sinceLabel.TextColor3 = Theme.Muted
-        sinceLabel.TextXAlignment = Enum.TextXAlignment.Left
-        sinceLabel.Font = Enum.Font.Code
-        sinceLabel.TextSize = 10
-        sinceLabel.ZIndex = 43
-        sinceLabel.Parent = row
-        _T18TimerRefs[rd.name].timer = sinceLabel
+        local fallback = Instance.new("TextLabel")
+        fallback.Size = UDim2.new(1, 0, 1, 0)
+        fallback.BackgroundTransparency = 1
+        fallback.Text = string.upper(rd.name:match("%a") or "?")
+        fallback.TextColor3 = Theme.Text
+        fallback.Font = Enum.Font.GothamBlack
+        fallback.TextSize = 15
+        fallback.ZIndex = 46
+        fallback.Parent = avatar
 
-        local leaveLbl = Instance.new("TextLabel")
-        leaveLbl.Size = UDim2.new(0, 50, 0, 14)
-        leaveLbl.Position = UDim2.new(0, 52, 0, 28)
-        leaveLbl.BackgroundTransparency = 1
-        leaveLbl.Text = hasLeft and ("خرج " .. rd.ent.leaveCount .. "x") or ""
-        leaveLbl.TextColor3 = Color3.fromRGB(220,120,60)
-        leaveLbl.TextXAlignment = Enum.TextXAlignment.Left
-        leaveLbl.Font = Enum.Font.Gotham
-        leaveLbl.TextSize = 10
-        leaveLbl.ZIndex = 43
-        leaveLbl.Parent = row
-        _T18TimerRefs[rd.name].leaveLabel = leaveLbl
+        local uid = ent.userId
+        if not uid then
+            local onlinePlayer = Players:FindFirstChild(rd.name)
+            if onlinePlayer then uid = onlinePlayer.UserId end
+        end
+        if uid then
+            avatar.Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(uid) .. "&w=150&h=150"
+            fallback.Visible = false
+        end
+        refs.avatar = avatar
+        refs.fallback = fallback
 
-        local selBtn = Instance.new("TextButton")
-        selBtn.Size = UDim2.new(0, 34, 0, 42)
-        selBtn.Position = UDim2.new(0, 4, 0, 4)
-        selBtn.BackgroundColor3 = Theme.Active
-        selBtn.BackgroundTransparency = 0.0
-        selBtn.Text = "→"
-        selBtn.TextColor3 = Theme.Text
-        selBtn.Font = Enum.Font.GothamBold
-        selBtn.TextSize = 18
-        selBtn.AutoButtonColor = false
-        selBtn.ZIndex = 44
-        selBtn.Parent = row
-        makeCorner(selBtn, 7)
-        makeStroke(selBtn, Theme.Border, 1, 0.3)
-        local _nm = rd.name
-        selBtn.MouseButton1Click:Connect(function()
-            _t18LogTarget(_nm)
-            TargetLogPanel.Visible = false
+        local dot = Instance.new("Frame")
+        dot.Size = UDim2.new(0, 11, 0, 11)
+        dot.Position = UDim2.new(0, 1, 1, -12)
+        dot.BackgroundColor3 = statusColor
+        dot.BorderSizePixel = 0
+        dot.ZIndex = 46
+        dot.Parent = ring
+        makeCorner(dot, 99)
+        makeStroke(dot, Color3.fromRGB(5, 6, 9), 2, 0)
+        refs.dot = dot
+
+        if (ent.count or 1) > 1 then
+            local seen = Instance.new("TextLabel")
+            seen.Size = UDim2.new(0, 22, 0, 13)
+            seen.Position = UDim2.new(0, -6, 0, -5)
+            seen.BackgroundColor3 = Color3.fromRGB(17, 19, 30)
+            seen.BackgroundTransparency = 0.04
+            seen.Text = "×" .. tostring(ent.count)
+            seen.TextColor3 = Color3.fromRGB(235, 220, 180)
+            seen.Font = Enum.Font.GothamBold
+            seen.TextSize = 8
+            seen.ZIndex = 47
+            seen.Parent = ring
+            makeCorner(seen, 6)
+            makeStroke(seen, Theme.Border, 1, 0.35)
+        end
+
+        local nameLbl = Instance.new("TextLabel")
+        nameLbl.Size = UDim2.new(1, -134, 0, 18)
+        nameLbl.Position = UDim2.new(0, 76, 0, 6)
+        nameLbl.BackgroundTransparency = 1
+        nameLbl.Text = ent.displayName or rd.name
+        nameLbl.TextColor3 = Theme.Text
+        nameLbl.TextXAlignment = Enum.TextXAlignment.Right
+        nameLbl.Font = Enum.Font.GothamBold
+        nameLbl.TextSize = 13
+        nameLbl.TextTruncate = Enum.TextTruncate.AtEnd
+        nameLbl.ZIndex = 43
+        nameLbl.Parent = row
+        refs.nameLabel = nameLbl
+
+        local userLbl = Instance.new("TextLabel")
+        userLbl.Size = UDim2.new(1, -134, 0, 12)
+        userLbl.Position = UDim2.new(0, 76, 0, 23)
+        userLbl.BackgroundTransparency = 1
+        userLbl.Text = "@" .. rd.name
+        userLbl.TextColor3 = Theme.Muted
+        userLbl.TextXAlignment = Enum.TextXAlignment.Right
+        userLbl.Font = Enum.Font.Gotham
+        userLbl.TextSize = 9
+        userLbl.TextTruncate = Enum.TextTruncate.AtEnd
+        userLbl.ZIndex = 43
+        userLbl.Parent = row
+        refs.userLabel = userLbl
+
+        local countLbl = Instance.new("TextLabel")
+        countLbl.Size = UDim2.new(1, -134, 0, 12)
+        countLbl.Position = UDim2.new(0, 76, 0, 37)
+        countLbl.BackgroundTransparency = 1
+        countLbl.Text = "دخول " .. tostring(ent.joinCount or 0) .. "  •  خروج " .. tostring(leaveCount)
+        countLbl.TextColor3 = hasLeft and Color3.fromRGB(230, 150, 90) or Color3.fromRGB(150, 190, 160)
+        countLbl.TextXAlignment = Enum.TextXAlignment.Right
+        countLbl.Font = Enum.Font.Gotham
+        countLbl.TextSize = 9
+        countLbl.TextTruncate = Enum.TextTruncate.AtEnd
+        countLbl.ZIndex = 43
+        countLbl.Parent = row
+        refs.countLabel = countLbl
+
+        local timerChip = Instance.new("Frame")
+        timerChip.Size = UDim2.new(0, 64, 0, 19)
+        timerChip.Position = UDim2.new(0, 8, 0, 9)
+        timerChip.BackgroundColor3 = Theme.Input
+        timerChip.BackgroundTransparency = 0.12
+        timerChip.BorderSizePixel = 0
+        timerChip.ZIndex = 43
+        timerChip.Parent = row
+        makeCorner(timerChip, 6)
+        makeStroke(timerChip, Theme.Border, 1, 0.35)
+
+        local timerLbl = Instance.new("TextLabel")
+        timerLbl.Size = UDim2.new(1, 0, 1, 0)
+        timerLbl.BackgroundTransparency = 1
+        timerLbl.Text = "منذ " .. _t18FmtTimer(_t18OnlineTime(ent))
+        timerLbl.TextColor3 = Theme.Text
+        timerLbl.Font = Enum.Font.Code
+        timerLbl.TextSize = 9
+        timerLbl.TextXAlignment = Enum.TextXAlignment.Center
+        timerLbl.ZIndex = 44
+        timerLbl.Parent = timerChip
+        refs.timer = timerLbl
+
+        local statusLbl = Instance.new("TextLabel")
+        statusLbl.Size = UDim2.new(0, 60, 0, 14)
+        statusLbl.Position = UDim2.new(0, 8, 0, 31)
+        statusLbl.BackgroundTransparency = 1
+        statusLbl.Text = isOnline and "● متصل" or "● خارج"
+        statusLbl.TextColor3 = statusColor
+        statusLbl.TextXAlignment = Enum.TextXAlignment.Left
+        statusLbl.Font = Enum.Font.GothamBold
+        statusLbl.TextSize = 9
+        statusLbl.ZIndex = 43
+        statusLbl.Parent = row
+        refs.status = statusLbl
+
+        local hoverTween
+        row.MouseEnter:Connect(function()
+            if hoverTween then hoverTween:Cancel() end
+            hoverTween = TweenService:Create(row, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                BackgroundColor3 = refs.hoverBg or hoverBg,
+            })
+            hoverTween:Play()
+            rowStroke.Transparency = 0.12
+        end)
+        row.MouseLeave:Connect(function()
+            if hoverTween then hoverTween:Cancel() end
+            hoverTween = TweenService:Create(row, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                BackgroundColor3 = refs.rowBg or rowBg,
+            })
+            hoverTween:Play()
+            rowStroke.Transparency = 0.32
+        end)
+
+        local trackedName = rd.name
+        row.MouseButton1Click:Connect(function()
+            _t18LogTarget(trackedName)
+            _t18SetTargetLogVisible(false)
         end)
     end
+    if _t18UpdateLogStats then _t18UpdateLogStats() end
 end
 
 RunService.Heartbeat:Connect(function()
-    if not TargetLogPanel.Visible then return end
+    if not TargetLogPanel.Visible or _t18TargetLogMinimized then return end
     for nm, ent in pairs(_T18TargetLog) do
         local refs = _T18TimerRefs[nm]
         if refs and refs.timer then
@@ -4916,26 +5552,33 @@ end)
 _tlSuggestions = Instance.new("Frame")
 _tlSuggestions.Name = "TlSuggestions"
 _tlSuggestions.Size = UDim2.new(1, -20, 0, 0)
-_tlSuggestions.Position = UDim2.new(0, 10, 0, 74)
+_tlSuggestions.Position = UDim2.new(0, 10, 0, 88)
 _tlSuggestions.BackgroundColor3 = Theme.Card
-_tlSuggestions.BackgroundTransparency = 0.05
+_tlSuggestions.BackgroundTransparency = 0.02
 _tlSuggestions.BorderSizePixel = 0
 _tlSuggestions.Visible = false
 _tlSuggestions.ZIndex = 60
 _tlSuggestions.ClipsDescendants = true
 _tlSuggestions.Parent = TargetLogPanel
-makeCorner(_tlSuggestions, 8)
-makeStroke(_tlSuggestions, Theme.Border, 1, 0.2)
-_tlSuggestionsLayout = Instance.new("UIListLayout")
-_tlSuggestionsLayout.Padding = UDim.new(0, 1)
-_tlSuggestionsLayout.SortOrder = Enum.SortOrder.LayoutOrder
-_tlSuggestionsLayout.Parent = _tlSuggestions
-_tlSuggestionsPad = Instance.new("UIPadding")
-_tlSuggestionsPad.PaddingLeft = UDim.new(0, 8)
-_tlSuggestionsPad.PaddingRight = UDim.new(0, 8)
-_tlSuggestionsPad.PaddingTop = UDim.new(0, 3)
-_tlSuggestionsPad.PaddingBottom = UDim.new(0, 3)
-_tlSuggestionsPad.Parent = _tlSuggestions
+makeCorner(_tlSuggestions, 9)
+makeStroke(_tlSuggestions, Theme.Border, 1, 0.18)
+UiFx.makeGradient(_tlSuggestions, {
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(16, 19, 38)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(6, 7, 12)),
+}, 90)
+UiFx.makeStarField(_tlSuggestions, 10)
+do
+    local layout = Instance.new("UIListLayout")
+    layout.Padding = UDim.new(0, 1)
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Parent = _tlSuggestions
+    local pad = Instance.new("UIPadding")
+    pad.PaddingLeft = UDim.new(0, 6)
+    pad.PaddingRight = UDim.new(0, 6)
+    pad.PaddingTop = UDim.new(0, 3)
+    pad.PaddingBottom = UDim.new(0, 3)
+    pad.Parent = _tlSuggestions
+end
 
 do
     local _lastAutoTargetName = ""
@@ -4966,25 +5609,42 @@ do
         end
 
         local shown = math.min(#matches, 6)
-        _tlSuggestions.Size = UDim2.new(1, -20, 0, shown * 24 + 6)
+        _tlSuggestions.Size = UDim2.new(1, -20, 0, shown * 30 + 6)
 
         for i = 1, shown do
             local player = matches[i]
             local suggestion = Instance.new("TextButton")
-            suggestion.Size = UDim2.new(1, 0, 0, 22)
+            suggestion.Size = UDim2.new(1, 0, 0, 26)
             suggestion.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
             suggestion.BackgroundTransparency = 1
             suggestion.BorderSizePixel = 0
             suggestion.AutoButtonColor = false
-            suggestion.Text = ":" .. player.Name
+            suggestion.Text = player.Name
             suggestion.TextColor3 = Theme.Text
             suggestion.TextXAlignment = Enum.TextXAlignment.Right
-            suggestion.Font = Enum.Font.Gotham
-            suggestion.TextSize = 13
+            suggestion.Font = Enum.Font.GothamMedium
+            suggestion.TextSize = 11
+            suggestion.TextTruncate = Enum.TextTruncate.AtEnd
             suggestion.LayoutOrder = i
             suggestion.ZIndex = 61
             suggestion.Parent = _tlSuggestions
-            makeCorner(suggestion, 5)
+            makeCorner(suggestion, 6)
+
+            local suggestionPad = Instance.new("UIPadding")
+            suggestionPad.PaddingRight = UDim.new(0, 30)
+            suggestionPad.PaddingLeft = UDim.new(0, 8)
+            suggestionPad.Parent = suggestion
+
+            local sugAvatar = Instance.new("ImageLabel")
+            sugAvatar.Size = UDim2.new(0, 18, 0, 18)
+            sugAvatar.Position = UDim2.new(1, -24, 0.5, -9)
+            sugAvatar.BackgroundColor3 = Color3.fromRGB(20, 21, 30)
+            sugAvatar.BorderSizePixel = 0
+            sugAvatar.Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(player.UserId) .. "&w=48&h=48"
+            sugAvatar.ZIndex = 62
+            sugAvatar.Parent = suggestion
+            makeCorner(sugAvatar, 99)
+            makeStroke(sugAvatar, Theme.Border, 1, 0.2)
 
             suggestion.MouseEnter:Connect(function()
                 suggestion.BackgroundTransparency = 0.9
@@ -5062,13 +5722,13 @@ _tlClear.MouseButton1Click:Connect(function()
     _T18TargetLog = {}
     _T18TimerRefs = {}
     _refreshTargetLog()
+    if _t18UpdateLogStats then _t18UpdateLogStats() end
 end)
 ListBtn.MouseButton1Click:Connect(function()
-    if TargetLogPanel.Visible then
-        TargetLogPanel.Visible = false
+    if _t18TargetLogOpen then
+        _t18SetTargetLogVisible(false)
     else
-        _refreshTargetLog()
-        TargetLogPanel.Visible = true
+        _t18SetTargetLogVisible(true)
     end
 end)
 
@@ -5129,6 +5789,9 @@ PickerBtn.MouseButton1Click:Connect(function()
                 and target:IsDescendantOf(player.Character) then
                 Input.Text = player.Name
                 _t18LogTarget(player.Name)
+                if _t18TargetLogOpen then
+                    pcall(function() _refreshTargetLog() end)
+                end
                 break
             end
         end
