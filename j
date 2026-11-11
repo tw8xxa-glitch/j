@@ -5054,7 +5054,7 @@ do
         if minBtn then minBtn.Text = _t18TargetLogMinimized and "+" or "–" end
         local headerFix = TargetLogPanel:FindFirstChild("TlHeaderFix", true)
         if headerFix then headerFix.Visible = not _t18TargetLogMinimized end
-        local names = {"TlFilter", "TlClear", "TlScroll", "TlFooter", "TlSuggestions"}
+        local names = {"TlFilterShell", "TlClearShell", "TlScroll", "TlFooter", "TlSuggestions", "TlFilter", "TlClear"}
         if _t18TargetLogMinimized then
             for _, nm in ipairs(names) do
                 local el = TargetLogPanel:FindFirstChild(nm, true)
